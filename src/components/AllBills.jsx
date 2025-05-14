@@ -56,14 +56,57 @@ function AllBills() {
   };
 
   const handleDownloadPDF = async (invoice) => {
-    const element = document.getElementById("invoice-content");
-    if (!element) {
-      toast.error("Could not find invoice content");
-      return;
-    }
-
     try {
-      const canvas = await html2canvas(element, {
+      // Create a temporary div for the invoice content
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = `
+        <div style="padding: 10px; font-family: Arial, sans-serif;">
+          <div style="text-align: center; margin-bottom: 10px;">
+            <h1 style="font-size: 20px; font-weight: bold; margin-bottom: 2px;">Dayal General Store</h1>
+            <p style="font-size: 14px; color: #666;">Invoice Details</p>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <p style="font-weight: bold;">Customer: ${invoice.customerName || "No Name"}</p>
+            <p style="color: #666;">Date: ${new Date(invoice.createdAt).toLocaleDateString()}</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+            <thead>
+              <tr style="background-color: #3B82F6; color: white;">
+                <th style="padding: 6px; text-align: left; border: 1px solid #2563EB;">Item</th>
+                <th style="padding: 6px; text-align: right; border: 1px solid #2563EB;">MRP</th>
+                <th style="padding: 6px; text-align: right; border: 1px solid #2563EB;">Qty</th>
+                <th style="padding: 6px; text-align: right; border: 1px solid #2563EB;">Price</th>
+                <th style="padding: 6px; text-align: right; border: 1px solid #2563EB;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items.map(item => `
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 6px; border: 1px solid #ddd;">${item.name}</td>
+                  <td style="padding: 6px; text-align: right; border: 1px solid #ddd;">${item.mrp ? `₹${item.mrp}` : '-'}</td>
+                  <td style="padding: 6px; text-align: right; border: 1px solid #ddd;">${item.quantity} ${item.unit}</td>
+                  <td style="padding: 6px; text-align: right; border: 1px solid #ddd;">
+                    ₹${item.price}
+                    ${item.isSpecialPrice ? '<span style="color: purple;">(Special)</span>' : ''}
+                  </td>
+                  <td style="padding: 6px; text-align: right; border: 1px solid #ddd;">₹${item.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background-color: #f9fafb;">
+                <td colspan="4" style="padding: 6px; text-align: right; font-weight: bold; border: 1px solid #ddd;">Total:</td>
+                <td style="padding: 6px; text-align: right; font-weight: bold; border: 1px solid #ddd;">
+                  ₹${invoice.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+      document.body.appendChild(tempDiv);
+
+      const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
         logging: false
@@ -82,10 +125,13 @@ function AllBills() {
       const imgHeight = canvas.height;
       const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
       const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 30;
+      const imgY = 10;
 
       pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       pdf.save(`invoice-${invoice._id}.pdf`);
+      
+      // Clean up
+      document.body.removeChild(tempDiv);
       toast.success("PDF downloaded successfully");
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -93,9 +139,128 @@ function AllBills() {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = (invoice) => {
     try {
-      window.print();
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 10px;
+              }
+              .invoice-header {
+                text-align: center;
+                margin-bottom: 10px;
+              }
+              .invoice-header h1 {
+                font-size: 20px;
+                margin: 0 0 2px 0;
+              }
+              .invoice-header p {
+                font-size: 14px;
+                color: #666;
+                margin: 0;
+              }
+              .customer-info {
+                margin-bottom: 10px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 10px;
+              }
+              th, td {
+                padding: 6px;
+                border: 1px solid #ddd;
+                text-align: left;
+              }
+              th {
+                background-color: #3B82F6;
+                color: white;
+              }
+              td {
+                text-align: right;
+              }
+              td:first-child {
+                text-align: left;
+              }
+              tfoot tr {
+                background-color: #f9fafb;
+                font-weight: bold;
+              }
+              @media print {
+                body {
+                  padding: 0;
+                }
+                .no-print {
+                  display: none;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="invoice-header">
+              <h1>Dayal General Store</h1>
+              <p>Invoice Details</p>
+            </div>
+            <div class="customer-info">
+              <p><strong>Customer:</strong> ${invoice.customerName || "No Name"}</p>
+              <p><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>MRP</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${invoice.items.map(item => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td>${item.mrp ? `₹${item.mrp}` : '-'}</td>
+                    <td>${item.quantity} ${item.unit}</td>
+                    <td>
+                      ₹${item.price}
+                      ${item.isSpecialPrice ? '<span style="color: purple;">(Special)</span>' : ''}
+                    </td>
+                    <td>₹${item.total.toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" style="text-align: right;">Total:</td>
+                  <td>₹${invoice.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+            <script>
+              window.onload = function() {
+                window.print();
+                window.onafterprint = function() {
+                  window.close();
+                };
+              };
+            </script>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', 'printWindow', 'width=800,height=600');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+      } else {
+        toast.error("Please allow popups for printing");
+      }
+      
       toast.success("Printing started");
     } catch (error) {
       console.error("Error printing:", error);
@@ -108,7 +273,7 @@ function AllBills() {
 
   return (
     <div className="container mx-auto p-2 sm:p-4">
-      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">All Bills</h1>
+      <h1 className="text-xl sm:text-2xl font-bold mb-4">All Bills</h1>
       {invoices.length === 0 ? (
         <div className="text-center text-gray-500 p-4">No bills found</div>
       ) : (
@@ -149,7 +314,7 @@ function AllBills() {
                   Download
                 </button>
                 <button
-                  onClick={handlePrint}
+                  onClick={() => handlePrint(invoice)}
                   className="text-xs sm:text-sm bg-purple-500 text-white px-2 sm:px-4 py-1 sm:py-2 rounded hover:bg-purple-600 transition-colors"
                 >
                   Print
@@ -171,7 +336,10 @@ function AllBills() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-lg p-3 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-3 sm:mb-4">
-              <h2 className="text-lg sm:text-xl font-bold">Invoice Details</h2>
+              <div className="flex flex-col">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Dayal General Store</h2>
+                <p className="text-sm sm:text-base text-gray-600">Invoice Details</p>
+              </div>
               <button
                 onClick={handleCloseModal}
                 className="text-gray-500 hover:text-gray-700"
@@ -187,36 +355,45 @@ function AllBills() {
                 </p>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full mb-3 sm:mb-4 text-xs sm:text-sm">
+                <table className="w-full mb-3 sm:mb-4 text-xs sm:text-sm border-collapse">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-1 sm:py-2">Item</th>
-                      <th className="text-right py-1 sm:py-2">MRP</th>
-                      <th className="text-right py-1 sm:py-2">Qty</th>
-                      <th className="text-right py-1 sm:py-2">Price</th>
-                      <th className="text-right py-1 sm:py-2">Total</th>
+                    <tr className="bg-[#3B82F6] text-white">
+                      <th className="px-2 sm:px-4 py-2 text-left border border-[#2563EB]">Item</th>
+                      <th className="px-2 sm:px-4 py-2 text-right border border-[#2563EB]">MRP</th>
+                      <th className="px-2 sm:px-4 py-2 text-right border border-[#2563EB]">Qty</th>
+                      <th className="px-2 sm:px-4 py-2 text-right border border-[#2563EB]">Price</th>
+                      <th className="px-2 sm:px-4 py-2 text-right border border-[#2563EB]">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedInvoice.items.map((item, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="py-1 sm:py-2">{item.name}</td>
-                        <td className="text-right py-1 sm:py-2">₹{item.mrp || '-'}</td>
-                        <td className="text-right py-1 sm:py-2">
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="px-2 sm:px-4 py-2 border border-gray-200 font-medium">{item.name}</td>
+                        <td className="px-2 sm:px-4 py-2 text-right border border-gray-200">
+                          {item.mrp ? `₹${item.mrp}` : '-'}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 text-right border border-gray-200">
                           {item.quantity} {item.unit}
                         </td>
-                        <td className="text-right py-1 sm:py-2">₹{item.price}</td>
-                        <td className="text-right py-1 sm:py-2">₹{item.total}</td>
+                        <td className="px-2 sm:px-4 py-2 text-right border border-gray-200">
+                          ₹{item.price}
+                          {item.isSpecialPrice && (
+                            <span className="ml-1 text-xs text-purple-600">(Special)</span>
+                          )}
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 text-right border border-gray-200">
+                          ₹{item.total.toFixed(2)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr>
-                      <td colSpan="4" className="text-right font-bold py-1 sm:py-2">
+                    <tr className="bg-gray-50">
+                      <td colSpan="4" className="px-2 sm:px-4 py-2 text-right font-bold border border-gray-200">
                         Total:
                       </td>
-                      <td className="text-right font-bold py-1 sm:py-2">
-                        ₹{selectedInvoice.items.reduce((sum, item) => sum + item.total, 0)}
+                      <td className="px-2 sm:px-4 py-2 text-right font-bold border border-gray-200">
+                        ₹{selectedInvoice.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}
                       </td>
                     </tr>
                   </tfoot>
@@ -231,7 +408,7 @@ function AllBills() {
                 Download PDF
               </button>
               <button
-                onClick={handlePrint}
+                onClick={() => handlePrint(selectedInvoice)}
                 className="text-xs sm:text-sm bg-purple-500 text-white px-2 sm:px-4 py-1 sm:py-2 rounded hover:bg-purple-600 transition-colors"
               >
                 Print

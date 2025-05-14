@@ -39,8 +39,8 @@ function AddItem() {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gray-100 p-6">
-      <h2 className="text-3xl font-bold text-gray-800 mb-8">Add Kirana Item</h2>
+    <div className="flex flex-col items-center bg-gray-100 p-2 sm:p-4">
+      <h2 className="text-xl sm:text-3xl font-bold text-gray-800 mb-4">Add Kirana Item</h2>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">

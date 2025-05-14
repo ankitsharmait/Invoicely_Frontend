@@ -7,7 +7,7 @@ import AllBills from "./components/AllBills";
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="bg-gray-100">
       <nav className="bg-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between h-16">
@@ -22,7 +22,7 @@ function App() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-4 px-4">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/add-item" element={<AddItem />} />
